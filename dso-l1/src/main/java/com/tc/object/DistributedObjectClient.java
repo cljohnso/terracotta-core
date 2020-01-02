@@ -379,6 +379,7 @@ public class DistributedObjectClient implements TCClient {
           //  don't reset interrupted, thread is done
         }, "Connection Maker - " + uuid));
       connectionThread.get().start();
+      DSO_LOGGER.info("Created Connection Maker: uuid={}, thread={}", uuid, connectionThread.get(), new Throwable());
   }
 
   private void connectionMade() {

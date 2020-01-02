@@ -19,12 +19,25 @@
 package org.terracotta.testing.rules;
 
 
+import com.tc.util.LoggingOutputStream;
+import com.tc.util.runtime.ThreadDumpUtil;
+
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
+
+import org.junit.After;
+import org.junit.Before;
 import org.junit.ClassRule;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TestName;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.slf4j.event.Level;
 import org.terracotta.connection.Connection;
 import org.terracotta.connection.ConnectionException;
+
+import java.io.PrintStream;
 
 
 /**
@@ -37,6 +50,26 @@ import org.terracotta.connection.ConnectionException;
 public class ClientLeakIT {
   @ClassRule
   public static final Cluster CLUSTER = BasicExternalClusterBuilder.newCluster(1).build(); //logConfigExtensionResourceName("custom-logback-ext.xml").build();
+
+  private final Logger logger = LoggerFactory.getLogger(ClientLeakIT.class);
+  private final PrintStream loggingStream = new PrintStream(new LoggingOutputStream(logger, Level.INFO));
+
+  @Rule
+  public final TestName testName = new TestName();
+
+  @Before
+  public void preDumpThreads() {
+    logger.info("Dumping threads BEFORE {}", testName.getMethodName());
+    loggingStream.println(ThreadDumpUtil.getThreadDump());
+    loggingStream.flush();
+  }
+
+  @After
+  public void postDumpThreads() {
+    logger.info("Dumping threads AFTER {}", testName.getMethodName());
+    loggingStream.println(ThreadDumpUtil.getThreadDump());
+    loggingStream.flush();
+  }
 
   /**
    * This will ensure that a fail-over correctly happens.
@@ -88,10 +121,13 @@ public class ClientLeakIT {
     Thread target = Thread.currentThread();
     new Thread(()->{
       try {
-        while (lookForConnectionMaker() == null) {
+        Thread maker;
+        while ((maker = lookForConnectionMaker()) == null) {
           Thread.sleep(1000);
         }
+        logger.info("Connection Maker found; maker={}", maker);
         Thread.sleep(1000);
+        logger.info("Connection Maker found; interrupting {}", target);
         target.interrupt();
       } catch (InterruptedException ie) {
         
@@ -105,15 +141,26 @@ public class ClientLeakIT {
     }
     assertNull(leak);
     Thread maker = lookForConnectionMaker();
+    logger.info("Checking Connection Maker {}", maker);
     if (maker != null) {
-      for (int x=0;x<1000 && maker.isAlive();x++) {
+      for (int x=0;x<500 && maker.isAlive();x++) {
         System.gc();
         Exception printer = new Exception("trying to join:" + x);
         printer.setStackTrace(maker.getStackTrace());
         printer.printStackTrace();
         maker.join(1000);
       }
-      assertFalse(maker.isAlive());
+      try {
+        assertFalse(maker.isAlive());
+      } catch (AssertionError e) {
+        try {
+          logger.info("Connection Maker not terminated {}", maker);
+          loggingStream.println(ThreadDumpUtil.getThreadDump());
+        } catch (Exception ex) {
+          e.addSuppressed(ex);
+        }
+        throw e;
+      }
     }
   }
   
