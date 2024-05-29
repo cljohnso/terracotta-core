@@ -23,7 +23,7 @@ import com.tc.exception.TCRuntimeException;
 /**
  * This Sequence deals with batches. It keeps a next batch around to avoid pauses and always requests a new next batch
  * as soon as the old next batch is promoted to current batch
- * 
+ *
  * @author steve, orion
  */
 public final class BatchSequence implements BatchSequenceReceiver, Sequence {
@@ -64,6 +64,7 @@ public final class BatchSequence implements BatchSequenceReceiver, Sequence {
           this.wait();
         }
       } catch (InterruptedException ie) {
+        Thread.currentThread().interrupt();
         throw new TCRuntimeException(ie);
       }
     }

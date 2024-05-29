@@ -121,7 +121,7 @@ public class ProcessTransactionHandler implements ReconnectListener {
     public void handleEvent(ResponseMessage context) throws EventHandlerException {
       NodeID destinationID = context.getResponse().getDestinationNodeID();
       TCAction response = context.getResponse();
-            
+
       if (response instanceof VoltronEntityMultiResponse) {
         VoltronEntityMultiResponse voltronEntityMultiResponse = (VoltronEntityMultiResponse)response;
         VoltronEntityMultiResponse sub = (VoltronEntityMultiResponse)response.getChannel().createMessage(TCMessageType.VOLTRON_ENTITY_MULTI_RESPONSE);
@@ -184,7 +184,7 @@ public class ProcessTransactionHandler implements ReconnectListener {
   private final AbstractEventHandler<VoltronEntityMessage> voltronHandler = new AbstractEventHandler<VoltronEntityMessage>() {
     @Override
     public void handleEvent(VoltronEntityMessage message) throws EventHandlerException {
-//  resends are only processed the first time an event is handled.  
+//  resends are only processed the first time an event is handled.
 //  resends are processed in this manner so invokes are scheduled by the expected stage thread
 //  see ManagedEntityImpl.scheduleInOrder()
 //  the call always happens and immediately returns if the resends have already been processed
@@ -242,7 +242,7 @@ public class ProcessTransactionHandler implements ReconnectListener {
       ServerConfigurationContext server = (ServerConfigurationContext)context;
 
       multiSend = server.getStage(ServerConfigurationContext.RESPOND_TO_REQUEST_STAGE, ResponseMessage.class);
-      
+
 //  go right to active state.  this only gets initialized once ACTIVE-COORDINATOR is entered
       reconnectDone = entityManager.enterActiveState();
 
@@ -281,10 +281,10 @@ public class ProcessTransactionHandler implements ReconnectListener {
   }
   /**
    * This is a confusing method used in a confusing way.  This is used to snapshot the current
-   * set of ManagedEntities.  There is synchronization in the EntityManager so a clean snapshot 
+   * set of ManagedEntities.  There is synchronization in the EntityManager so a clean snapshot
    * can be taken.  The runnable is functionality that is passed in that must run under lock.
-   * entities while the snapshot is being captured.  Once the live set of entities is established, 
-   * startSync is called on each one so that internal state of the entity is locked down until 
+   * entities while the snapshot is being captured.  Once the live set of entities is established,
+   * startSync is called on each one so that internal state of the entity is locked down until
    * the sync has happened on that particular entity
    */
   public Iterable<ManagedEntity> snapshotEntityList(Predicate<ManagedEntity> runFirst) {
@@ -294,7 +294,7 @@ public class ProcessTransactionHandler implements ReconnectListener {
   boolean removeClient(ClientID target) {
     return !inflightFetch.containsKey(target);
   }
-  
+
   private void insertMessageInStream(VoltronEntityResponse msg) {
     // cutoff multi response so that a multi-message enqueued before this message do not
     // capture new messages intended to be sent after this one.
@@ -312,7 +312,7 @@ public class ProcessTransactionHandler implements ReconnectListener {
     // don't bother if the client isNull, no where to send the message
     // if not, compute the result and schedule send if neccessary
     while (!target.isNull()) {
-      // get the vmr.  most cases, will be present but if not create one 
+      // get the vmr.  most cases, will be present but if not create one
       VoltronEntityMultiResponse vmr = invokeReturn.computeIfAbsent(target, (client)-> {
           Optional<MessageChannel> channel = safeGetChannel(client);
           if (channel.isPresent()) {
@@ -354,8 +354,8 @@ public class ProcessTransactionHandler implements ReconnectListener {
   }
 
 // only the process transaction thread will add messages here except for on reconnect
-  private void addMessage(ClientID sourceNodeID, EntityDescriptor descriptor, ServerEntityAction action, 
-          MessagePayload entityMessage, TransactionID transactionID, TransactionID oldestTransactionOnClient, 
+  private void addMessage(ClientID sourceNodeID, EntityDescriptor descriptor, ServerEntityAction action,
+          MessagePayload entityMessage, TransactionID transactionID, TransactionID oldestTransactionOnClient,
           Consumer<byte[]> chaincomplete, Consumer<ServerException> chainfail, boolean requiresReceived, boolean requiresRetired) {
     // Version error or duplicate creation requests will manifest as exceptions here so catch them so we can send them back
     //  over the wire as an error in the request.
@@ -446,7 +446,7 @@ public class ProcessTransactionHandler implements ReconnectListener {
         capture.setTransactionOrderPersistenceFuture(transactionOrderPersistenceFuture);
         entity.addRequestMessage(capture, entityMessage, capture);
       } else if (action == ServerEntityAction.MANAGED_ENTITY_GC && entity.isRemoveable()) {
-        // MANAGED_ENTITY_GC may not be removeable if the entity was immediately recreated 
+        // MANAGED_ENTITY_GC may not be removeable if the entity was immediately recreated
         // after destroy.  If this is the case, just schedule the action and it will act like a flush
         LOGGER.debug("removing " + entity.getID());
         entityManager.removeDestroyed(descriptor.getFetchID());
@@ -584,6 +584,7 @@ public class ProcessTransactionHandler implements ReconnectListener {
           try {
             this.wait();
           } catch (InterruptedException ie) {
+            Thread.currentThread().interrupt();
             throw new RuntimeException(ie);
           }
         }

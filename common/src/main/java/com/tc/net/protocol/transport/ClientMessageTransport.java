@@ -18,6 +18,7 @@
  */
 package com.tc.net.protocol.transport;
 
+import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.tc.exception.TCRuntimeException;
@@ -51,6 +52,7 @@ import java.util.concurrent.TimeoutException;
  * Client implementation of the transport network layer.
  */
 public class ClientMessageTransport extends MessageTransportBase {
+  private static final Logger LOGGER = LoggerFactory.getLogger(ClientMessageTransport.class);
   public static final long                  TRANSPORT_HANDSHAKE_SYNACK_TIMEOUT = TCPropertiesImpl
                                                                                    .getProperties()
                                                                                    .getLong(TCPropertiesConsts.TC_TRANSPORT_HANDSHAKE_TIMEOUT,
@@ -91,7 +93,7 @@ public class ClientMessageTransport extends MessageTransportBase {
 
   /**
    * Blocking open. Causes a connection to be made. Will throw exceptions if the connect fails.
-   * 
+   *
    * @throws TCTimeoutException
    * @throws IOException
    * @throws MaxConnectionsExceededException
@@ -121,6 +123,7 @@ public class ClientMessageTransport extends MessageTransportBase {
           throw new IOException(cause);
         }
       } catch (java.lang.InterruptedException e) {
+        Thread.currentThread().interrupt();
         throw new IOException(e);
       }
     }
@@ -147,7 +150,7 @@ public class ClientMessageTransport extends MessageTransportBase {
   }
   /**
    * Tries to make a connection. This is a blocking call.
-   * 
+   *
    * @return
    * @throws TCTimeoutException
    * @throws IOException
@@ -170,7 +173,7 @@ public class ClientMessageTransport extends MessageTransportBase {
     }
     return connection;
   }
-  
+
   @Override
   public void reset() {
     getLogger().info("Resetting connection " + getConnectionID());
@@ -258,7 +261,7 @@ public class ClientMessageTransport extends MessageTransportBase {
   @Override
   public void closeEvent(TCConnectionEvent event) {
     if (!isOpening() && !status.isAlive()) {
-      return; 
+      return;
     }
     super.closeEvent(event);
     clearAckWaiter(new IOException("connection closed"));
@@ -361,7 +364,7 @@ public class ClientMessageTransport extends MessageTransportBase {
 
   /**
    * Builds a protocol stack and tries to make a connection. This is a blocking call.
-   * 
+   *
    * @throws TCTimeoutException
    */
   HandshakeResult handShake() throws TCTimeoutException, TransportHandshakeException {
@@ -373,6 +376,7 @@ public class ClientMessageTransport extends MessageTransportBase {
       throw t;
     } catch (InterruptedException e) {
       clearAckWaiter(e);
+      Thread.currentThread().interrupt();
       throw new TransportHandshakeException(e);
     } catch (ExecutionException e) {
       clearAckWaiter(e.getCause());
@@ -394,7 +398,7 @@ public class ClientMessageTransport extends MessageTransportBase {
         clearAckWaiter(new IOException("closed"));
         return targetFuture;
       }
-      
+
       if (this.status.isEstablished() || this.status.isSynSent()) { throw new AssertionError(" ERROR !!! "
                                                                                              + this.status); }
       // get the stack layer list and pass it in
@@ -411,7 +415,7 @@ public class ClientMessageTransport extends MessageTransportBase {
         logger.warn("trouble syn", ioe);
       }
     }
-    
+
     return targetFuture;
   }
 
@@ -438,6 +442,7 @@ public class ClientMessageTransport extends MessageTransportBase {
       MaxConnectionsExceededException, CommStackMismatchException {
     Assert.eval(!isConnected());
     if (wireNewConnection(connection)) {
+      LOGGER.trace("{}.openConnection", this.getClass().getName());
       try {
         handshakeConnection();
       } catch (TCTimeoutException e) {
@@ -463,13 +468,13 @@ public class ClientMessageTransport extends MessageTransportBase {
       this.getLogger().info("Transport never opened. Skip reconnect " + serverAddress);
       return;
     }
-    
+
     reconnect(serverAddress);
   }
-  
+
   void reconnect(InetSocketAddress socket) throws TCTimeoutException, ReconnectionRejectedException, MaxConnectionsExceededException, CommStackMismatchException, IOException {
     TCConnection connection = connect(socket);
-      
+
     Assert.eval(!isConnected());
     if (wireNewConnection(connection)) {
       try {
@@ -523,7 +528,7 @@ public class ClientMessageTransport extends MessageTransportBase {
     public boolean hasErrorContext() {
       return this.synAck.isMaxConnectionsExceeded() || this.synAck.hasErrorContext();
     }
-    
+
     public boolean isConnectionValid() {
       return synAck.getConnectionId().isValid();
     }
@@ -556,9 +561,9 @@ public class ClientMessageTransport extends MessageTransportBase {
   @Override
   public void sendToConnection(TCNetworkMessage message) throws IOException {
     // override just here to satisfy mocking in tests...
-    super.sendToConnection(message); 
+    super.sendToConnection(message);
   }
-  
+
   boolean isRetryOnReconnectionRejected() {
     return this.reconnectionRejectedHandler.isRetryOnReconnectionRejected();
   }

@@ -33,6 +33,7 @@ import com.tc.net.protocol.transport.WireProtocolMessageImpl;
 import com.tc.util.Assert;
 import com.tc.util.TCTimeoutException;
 import java.io.IOException;
+import java.io.InterruptedIOException;
 import java.net.Socket;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -66,11 +67,11 @@ import org.slf4j.LoggerFactory;
  */
 public class BasicConnection implements TCConnection {
   private static final Logger LOGGER = LoggerFactory.getLogger(BasicConnection.class);
-  
+
   private long connect = 0;
   private volatile long last = System.currentTimeMillis();
   private volatile long received = System.currentTimeMillis();
-  
+
   private final Consumer<TCConnection> closeRunnable;
   private final Consumer<WireProtocolMessage> write;
   private final TCProtocolAdaptor adaptor;
@@ -83,9 +84,10 @@ public class BasicConnection implements TCConnection {
   private volatile Thread serviceThread;
   private volatile ExecutorService readerExec;
   private final String id;
-  
-  
+
+
   public BasicConnection(String id, TCProtocolAdaptor adapter, BufferManagerFactory buffers, Consumer<TCConnection> close) {
+    LOGGER.trace("Instantiating {}: id={}", this.getClass().getName(), id);
     this.id = id;
     this.bufferManagerFactory = buffers;
     Object writeMutex = new Object();
@@ -94,9 +96,9 @@ public class BasicConnection implements TCConnection {
         return;
       }
       synchronized (writeMutex) {
+        boolean interrupted = Thread.interrupted();
         try {
           if (this.src != null) {
-            boolean interrupted = Thread.interrupted();
             int totalLen = message.getTotalLength();
             int moved = 0;
             int sent = 0;
@@ -121,19 +123,20 @@ public class BasicConnection implements TCConnection {
                 // flush everything out of the buffer
                 sent += buffer.sendFromBuffer();
               }
-              if (interrupted) {
-                Thread.currentThread().interrupt();
-              }
             }
           }
-        } catch (IOException ioe) {
-          fireError(ioe, message);
+        } catch (InterruptedIOException e) {
+          fireError(e, message);
           close();
+          interrupted = true;
         } catch (Exception t) {
           fireError(t, message);
           close();
         } finally {
           message.complete();
+          if (interrupted) {
+            Thread.currentThread().interrupt();
+          }
         }
       }
     };
@@ -155,7 +158,7 @@ public class BasicConnection implements TCConnection {
   public long getIdleReceiveTime() {
     return System.currentTimeMillis() - received;
   }
-  
+
   void markReceived() {
     received = System.currentTimeMillis();
   }
@@ -206,7 +209,7 @@ public class BasicConnection implements TCConnection {
       fireClosed();
     }
   }
-  
+
   private void close(Closeable c) {
     try {
       c.close();
@@ -214,15 +217,15 @@ public class BasicConnection implements TCConnection {
       LOGGER.debug("failed", t);
     }
   }
-  
+
   private void tryOp(Callable op) {
     try {
       op.call();
     } catch (Exception t) {
       LOGGER.debug("failed", t);
     }
-  }  
-  
+  }
+
   private boolean shutdownBuffer() {
     BufferManager buff = this.buffer;
     if (buff != null) {
@@ -235,7 +238,7 @@ public class BasicConnection implements TCConnection {
     }
     return false;
   }
-    
+
   private Future<Void> shutdownAndAwaitTermination() {
     ExecutorService reader = readerExec;
     if (reader != null) {
@@ -271,54 +274,57 @@ public class BasicConnection implements TCConnection {
           reader.awaitTermination(timeout, unit);
         }
         return null;
-      } 
+      }
     };
   }
 
   private synchronized List<TCConnectionEventListener> getListeners() {
     return new ArrayList<>(listeners);
   }
-  
+
   private void fireClosed() {
     TCConnectionEvent event = new TCConnectionEvent(this);
     getListeners().forEach(l->l.closeEvent(event));
   }
-  
+
   private void fireConnect() {
     TCConnectionEvent event = new TCConnectionEvent(this);
     getListeners().forEach(l->l.connectEvent(event));
   }
-  
+
   private void fireEOF() {
     TCConnectionEvent event = new TCConnectionEvent(this);
     getListeners().forEach(l->l.endOfFileEvent(event));
   }
-  
+
   private void fireError(Exception err, TCNetworkMessage cxt) {
     TCConnectionErrorEvent event = new TCConnectionErrorEvent(this, err, cxt);
     getListeners().forEach(l->l.errorEvent(event));
   }
-  
+
   @Override
   public synchronized Socket connect(InetSocketAddress addr, int timeout) throws IOException, TCTimeoutException {
     boolean interrupted = Thread.interrupted();
-    Assert.assertNull(readerExec);
-    Assert.assertNull(src);
-    // always rebuild the socket address with exerything that comes with it UnkownHostException etc
-    SocketChannel channel = SocketChannel.open(new InetSocketAddress(InetAddress.getByName(addr.getHostString()), addr.getPort()));
-    src = channel.socket();
-    this.buffer = bufferManagerFactory.createBufferManager(channel, true);
-    if (this.buffer == null) {
-      throw new IOException("buffer manager not provided");
-    }
-    this.connected = src.isConnected();
-    if (connected) {
-      readMessages();
-      fireConnect();
-      connect = System.currentTimeMillis();
-    }
-    if (interrupted) {
-      Thread.currentThread().interrupt();
+    try {
+      Assert.assertNull(readerExec);
+      Assert.assertNull(src);
+      // always rebuild the socket address with exerything that comes with it UnkownHostException etc
+      SocketChannel channel = SocketChannel.open(new InetSocketAddress(InetAddress.getByName(addr.getHostString()), addr.getPort()));
+      src = channel.socket();
+      this.buffer = bufferManagerFactory.createBufferManager(channel, true);
+      if (this.buffer == null) {
+        throw new IOException("buffer manager not provided");
+      }
+      this.connected = src.isConnected();
+      if (connected) {
+        readMessages();
+        fireConnect();
+        connect = System.currentTimeMillis();
+      }
+    } finally {
+      if (interrupted) {
+        Thread.currentThread().interrupt();
+      }
     }
     if (LOGGER.isDebugEnabled()) {
       LOGGER.debug("connected", new Exception());
@@ -369,14 +375,16 @@ public class BasicConnection implements TCConnection {
 
   @Override
   public void putMessage(TCNetworkMessage message) {
+    LOGGER.trace("{}.putMessage", this.getClass().getName());
     last = System.currentTimeMillis();
     WireProtocolMessage msg = buildWireProtocolMessage(message);
     if (msg != null) {
       this.write.accept(msg);
     }
   }
-  
+
   private void readMessages() {
+    LOGGER.trace("{}.readMessages", this.getClass().getName());
     Assert.assertNull(readerExec);
     readerExec = Executors.newFixedThreadPool(1, (r) -> {
       serviceThread = new Thread(r, id + " - BasicConnectionReader-" + this.src.getLocalSocketAddress() + "<-" + this.src.getRemoteSocketAddress() + " for (" + System.identityHashCode(this) + ")");
@@ -441,7 +449,7 @@ public class BasicConnection implements TCConnection {
       LOGGER.debug("EXITED {} connected:{} established:{}", System.identityHashCode(this), connected, established);
     });
   }
-    
+
   private WireProtocolMessage buildWireProtocolMessage(TCNetworkMessage message) {
     Objects.requireNonNull(message);
     if (message instanceof WireProtocolMessage) {
@@ -451,9 +459,9 @@ public class BasicConnection implements TCConnection {
       if (action.load() && action.commit()) {
         WireProtocolMessage wireMessage = WireProtocolMessageImpl.wrapMessage(action, this);
         return finalizeWireProtocolMessage(wireMessage);
-      } 
+      }
     }
-    
+
     return null;
   }
 
@@ -466,7 +474,7 @@ public class BasicConnection implements TCConnection {
     hdr.setMessageCount(1);
     hdr.computeChecksum();
     return message;
-  } 
+  }
 
   @Override
   public Map<String, ?> getState() {
@@ -485,5 +493,5 @@ public class BasicConnection implements TCConnection {
       state.put("buffer", this.buffer.toString());
     }
     return state;
-  }  
+  }
 }

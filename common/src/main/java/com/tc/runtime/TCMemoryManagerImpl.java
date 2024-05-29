@@ -95,6 +95,7 @@ public class TCMemoryManagerImpl implements TCMemoryManager {
       try {
         monitor.join();
       } catch (InterruptedException ie) {
+        Thread.currentThread().interrupt();
         throw new RuntimeException(ie);
       }
     }

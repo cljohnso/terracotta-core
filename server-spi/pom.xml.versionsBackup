@@ -24,18 +24,22 @@
   <parent>
     <groupId>org.terracotta.internal</groupId>
     <artifactId>build-parent</artifactId>
-    <version>5.10-INTERRUPT</version>
+    <version>5.10-SNAPSHOT</version>
     <relativePath>../build-parent</relativePath>
   </parent>
   <modelVersion>4.0.0</modelVersion>
 
   <groupId>org.terracotta.internal</groupId>
-  <artifactId>common-spi</artifactId>
+  <artifactId>server-spi</artifactId>
   <properties>
     <java.build.version>1.8</java.build.version>
   </properties>
 
   <dependencies>
-  
+      <dependency>
+          <groupId>org.terracotta.internal</groupId>
+          <artifactId>common-spi</artifactId>
+          <version>${project.version}</version>
+      </dependency>
   </dependencies>
 </project>

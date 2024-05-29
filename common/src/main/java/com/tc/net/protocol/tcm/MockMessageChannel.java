@@ -105,10 +105,11 @@ public class MockMessageChannel implements MessageChannelInternal {
     try {
       closedCalls.put(new Object());
     } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
       e.printStackTrace();
     }
   }
-  
+
   @Override
   public ChannelID getChannelID() {
     return channelId;
@@ -144,7 +145,7 @@ public class MockMessageChannel implements MessageChannelInternal {
   public NetworkStackID open(Iterable<InetSocketAddress> serverAddresses) throws MaxConnectionsExceededException, TCTimeoutException, UnknownHostException, IOException, CommStackMismatchException {
     throw new UnsupportedOperationException();
   }
-  
+
   @SuppressWarnings("resource")
   @Override
   public TCAction createMessage(TCMessageType type) {

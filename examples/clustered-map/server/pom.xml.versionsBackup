@@ -24,12 +24,12 @@
   <parent>
     <groupId>org.terracotta.internal</groupId>
     <artifactId>build-parent</artifactId>
-    <version>5.10-INTERRUPT</version>
+    <version>5.10-SNAPSHOT</version>
     <relativePath>../../../build-parent</relativePath>
   </parent>
 
   <groupId>org.terracotta.internal</groupId>
-  <artifactId>clustered-map-client</artifactId>
+  <artifactId>clustered-map-server</artifactId>
 
   <dependencies>
     <dependency>
@@ -39,24 +39,30 @@
     </dependency>
     <dependency>
       <groupId>org.terracotta</groupId>
-      <artifactId>entity-common-api</artifactId>
+      <artifactId>entity-server-api</artifactId>
       <scope>provided</scope>
     </dependency>
     <dependency>
-      <groupId>org.terracotta</groupId>
-      <artifactId>entity-client-api</artifactId>
-      <scope>provided</scope>
-    </dependency>
-    <dependency>
-      <groupId>junit</groupId>
-      <artifactId>junit</artifactId>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.hamcrest</groupId>
-      <artifactId>hamcrest-all</artifactId>
-      <scope>test</scope>
+        <groupId>org.terracotta</groupId>
+        <artifactId>standard-cluster-services</artifactId>
+        <scope>provided</scope>
     </dependency>
   </dependencies>
+  <build>
 
+  <plugins>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-jar-plugin</artifactId>
+          <version>3.2.0</version>
+          <configuration>
+            <archive>
+              <manifest>
+                <addClasspath>true</addClasspath>
+              </manifest>
+            </archive>
+          </configuration>
+        </plugin>
+   </plugins>
+   </build>
 </project>

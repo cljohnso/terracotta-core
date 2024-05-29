@@ -69,11 +69,11 @@ public class StageImpl<EC> implements Stage<EC> {
                                                      .getLong(TCPropertiesConsts.L2_SEDA_STAGE_STALL_WARNING, 500);
   private volatile long lastWarnTime = 0;
   private int spinning = 0;
-  
+
   private StageMonitor event;
   /**
    * The Constructor.
-   * 
+   *
    * @param loggerProvider : logger
    * @param name : The stage name
    * @param type
@@ -110,11 +110,11 @@ public class StageImpl<EC> implements Stage<EC> {
       lastWarnTime = Long.MAX_VALUE;
     }
   }
-  
+
   private EventCreator<EC> eventCreator(boolean direct) {
     return (direct) ? new DirectEventCreator<>(baseCreator(), ()->isEmpty()) : baseCreator();
   }
-  
+
   private EventCreator<EC> baseCreator() {
     return (event) -> {
       long start = System.nanoTime();
@@ -136,7 +136,7 @@ public class StageImpl<EC> implements Stage<EC> {
       };
     };
   }
-  
+
   private void warnIfWarranted(String type, Object event, long time) {
     long now = System.currentTimeMillis();
     if (now - lastWarnTime > 1000) {
@@ -147,7 +147,7 @@ public class StageImpl<EC> implements Stage<EC> {
       }
     }
   }
-  
+
   @Override
   public boolean isEmpty() {
     return inflight.sum() == 0;
@@ -216,7 +216,7 @@ public class StageImpl<EC> implements Stage<EC> {
   public void unpause() {
     paused = false;
   }
- 
+
   private synchronized void startThreads(String contextId) {
     for (int i = 0; i < threads.length; i++) {
       String threadName = contextId != null ? contextId + " - " : "";
@@ -236,6 +236,7 @@ public class StageImpl<EC> implements Stage<EC> {
       try {
         thread.join();
       } catch (InterruptedException ie) {
+        Thread.currentThread().interrupt();
         throw new RuntimeException(ie);
       }
     }
@@ -258,7 +259,7 @@ public class StageImpl<EC> implements Stage<EC> {
       }
     });
   }
-  
+
   @Override
   public Map<String, ?> getState() {
     Map<String, Object> data = new LinkedHashMap<>();
@@ -297,7 +298,7 @@ public class StageImpl<EC> implements Stage<EC> {
         ThreadUtil.reallySleep(1000);
       }
     }
-    
+
     public boolean isIdle() {
       return this.idle && this.source.isEmpty();
     }
@@ -357,7 +358,7 @@ public class StageImpl<EC> implements Stage<EC> {
         }
       }
     }
-    
+
     private Map<String, ?> getStats() {
       Map<String, Object> state = new LinkedHashMap<>();
       state.put("idle", idleTime);
@@ -367,8 +368,8 @@ public class StageImpl<EC> implements Stage<EC> {
       return state;
     }
   }
-  
-  
+
+
 
   private static boolean isTCNotRunningException(Throwable e) {
     while (e != null) {

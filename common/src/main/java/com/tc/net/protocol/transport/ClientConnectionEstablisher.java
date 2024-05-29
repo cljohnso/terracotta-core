@@ -70,7 +70,7 @@ public class ClientConnectionEstablisher {
   //  tie these two variables in synchronized blocks
   private boolean               allowReconnects       = false;
   private AsyncReconnect        asyncReconnect;
-    
+
   static {
     Logger logger = LoggerFactory.getLogger(ClientConnectionEstablisher.class);
     long value = TCPropertiesImpl.getProperties().getLong(TCPropertiesConsts.L1_SOCKET_RECONNECT_WAIT_INTERVAL);
@@ -87,7 +87,7 @@ public class ClientConnectionEstablisher {
   }
   /**
    * Blocking open. Causes a connection to be made. Will throw exceptions if the connect fails.
-   * 
+   *
    * @throws TCTimeoutException
    * @throws IOException
    * @throws CommStackMismatchException
@@ -136,7 +136,7 @@ public class ClientConnectionEstablisher {
     Assert.assertFalse(transport.isConnected());
     Iterator<InetSocketAddress> serverAddressIterator = getServerAddressIterator();
     InetSocketAddress target = null;
-    
+
     while (target != null || serverAddressIterator.hasNext()) {
       if (target == null) {
         target = nextServerAddress(serverAddressIterator);
@@ -151,7 +151,7 @@ public class ClientConnectionEstablisher {
         reporter.onError(target, noactive);
         target = null;
         LOGGER.debug("Connection attempt failed: ", noactive);
-        // if there is no active, throw an IOException and let upper layers of 
+        // if there is no active, throw an IOException and let upper layers of
         // the network stack handle the issue
         if (!serverAddressIterator.hasNext()) { throw new IOException(noactive); }
       } catch (TCTimeoutException | IOException e) {
@@ -290,7 +290,7 @@ public class ClientConnectionEstablisher {
   String getHostByName(InetSocketAddress serverAddress) throws UnknownHostException {
     return InetAddress.getByName(serverAddress.getHostName()).getHostAddress();
   }
-  
+
   private boolean tryToConnect(boolean connected, Supplier<Boolean> stopCheck) {
     boolean stopper = stopCheck.get();
     boolean stopped = !isReconnectEnabled();
@@ -361,7 +361,7 @@ public class ClientConnectionEstablisher {
     // both conditions should always match.
     return allowReconnects && asyncReconnect != null;
   }
-  
+
   private synchronized AsyncReconnect getReconnectHandler() {
     if (allowReconnects) {
       Assert.assertNotNull(asyncReconnect);
@@ -396,7 +396,7 @@ public class ClientConnectionEstablisher {
       reconnect.getCurrentTask().cancel(true);
     }
   }
-  
+
   boolean isReconnecting() {
     AsyncReconnect reconnect = getReconnectHandler();
     if (reconnect != null) {
@@ -405,7 +405,7 @@ public class ClientConnectionEstablisher {
       return false;
     }
   }
-  
+
   private class AsyncReconnect {
     private final ExecutorService connectionEstablisher = new ThreadPoolExecutor(0, 1, 5, TimeUnit.SECONDS, new SynchronousQueue<>(), (Runnable r) -> {
       Thread t = new Thread(r, RECONNECT_THREAD_NAME + "-" + serverAddresses.toString() + "-" + transport.getConnectionID());
@@ -417,13 +417,13 @@ public class ClientConnectionEstablisher {
     public boolean isStopped() {
       return connectionEstablisher.isShutdown();
     }
-    
+
     public void stop() {
       LOGGER.debug("Connection establisher stopping for connection {} to {}", transport.getConnectionID(), serverAddresses);
       connectionEstablisher.shutdown();
       currentTask.cancel(true);
     }
-    
+
     public Future<?> getCurrentTask() {
       return currentTask;
     }
@@ -433,7 +433,7 @@ public class ClientConnectionEstablisher {
         LOGGER.info("connect request ignored, reconnect has been shut down");
         return false;
       } else if (!currentTask.isDone()) {
-        //  if the current task is not done, this addtional request is likely 
+        //  if the current task is not done, this addtional request is likely
         //  due to a failed reconnect, let the original just continue on
         LOGGER.info("connect request ignored, already reconnecting");
         return false;
@@ -459,6 +459,7 @@ public class ClientConnectionEstablisher {
         String connInfo = (transport.getLocalAddress() + "->" + transport.getRemoteAddress() + " ");
         transport.getLogger().error(connInfo + e.getMessage());
       } catch (InterruptedException ie) {
+        Thread.currentThread().interrupt();
         transport.getLogger().warn("reconnection failed for connection {} to {} due to interruption", transport.getConnectionID(), serverAddresses, ie);
       } catch (Throwable t) {
         transport.getLogger().warn("Reconnect failed !", t);
@@ -473,7 +474,7 @@ public class ClientConnectionEstablisher {
     ConnectionRequest(Supplier<Boolean> stopCheck) {
       this.stopCheck = stopCheck;
     }
-    
+
     boolean checkForStop() {
       return stopCheck.get();
     }

@@ -151,7 +151,7 @@ public class ClientEntityManagerImpl implements ClientEntityManager {
       }
     }
   }
-  
+
   @Override
   public void handleMessage(ClientInstanceID clientInstance, byte[] message) {
     EntityClientEndpoint<?, ?> endpoint = this.objectStoreMap.get(clientInstance);
@@ -161,7 +161,7 @@ public class ClientEntityManagerImpl implements ClientEntityManager {
       logger.info("Instance " + clientInstance + " not found. Ignoring message.");
     }
   }
-  
+
   private void deliverInboundMessage(EntityClientEndpoint endpoint, byte[] msg) {
     EntityClientEndpointImpl<?, ?> endpointImpl = (EntityClientEndpointImpl<?, ?>) endpoint;
     try {
@@ -347,7 +347,7 @@ public class ClientEntityManagerImpl implements ClientEntityManager {
       ClientEntityReferenceContext context = new ClientEntityReferenceContext(entityID, entityVersion, descriptor.getClientInstanceID(), extendedReconnectData);
       handshakeMessage.addReconnectReference(context);
     }
-    
+
     // Walk the inFlightMessages, adding them all to the handshake, since we need them to be replayed.
     for (InFlightMessage inFlight : this.inFlightMessages.values()) {
       if (inFlight.commit()) {
@@ -393,7 +393,7 @@ public class ClientEntityManagerImpl implements ClientEntityManager {
     }
     this.objectStoreMap.clear();
   }
-  
+
   private void throwClosedExceptionOnMessage(InFlightMessage msg, String description) {
     msg.received();
     // Synthesize the disconnect runtime exception for this message.
@@ -433,7 +433,7 @@ public class ClientEntityManagerImpl implements ClientEntityManager {
         }
       };
       resolvedEndpoint = new EntityClientEndpointImpl<>(entity, version, EntityDescriptor.createDescriptorForInvoke(fetch, instance), this, config, codec, compoundRunnable, this.endpointCloser);
-      
+
       if (this.objectStoreMap.putIfAbsent(instance, resolvedEndpoint) != null) {
         throw Assert.failure("Attempt to add an object that already exists: Object of class " + resolvedEndpoint.getClass()
                              + " [Identity Hashcode : 0x" + Integer.toHexString(System.identityHashCode(resolvedEndpoint)) + "] ");
@@ -470,7 +470,7 @@ public class ClientEntityManagerImpl implements ClientEntityManager {
       logger.debug("Releasing " + ref.getEntityID() + "=" + print.toString());
     }
   }
-  
+
   private byte[] internalRetrieve(EntityDescriptor entityDescriptor) throws EntityException {
     // We need to provide fully blocking semantics with this call so we will wait for the "COMPLETED" ack.
     return lifecycleAndComplete(entityDescriptor.getEntityID(), entityDescriptor, VoltronEntityMessage.Type.FETCH_ENTITY);
@@ -535,7 +535,7 @@ public class ClientEntityManagerImpl implements ClientEntityManager {
 
   private static class FlushResponse implements VoltronEntityResponse, VoltronEntityMultiResponse {
     private boolean accessed = false;
-    
+
     @Override
     public synchronized TransactionID getTransactionID() {
       notifyAll();
@@ -564,7 +564,7 @@ public class ClientEntityManagerImpl implements ClientEntityManager {
       accessed = true;
       return 0;
     }
-    
+
     @Override
     public NetworkRecall send() {
       return null;
@@ -663,6 +663,7 @@ public class ClientEntityManagerImpl implements ClientEntityManager {
         try {
           TimeUnit.SECONDS.sleep(2);
         } catch (InterruptedException in) {
+          Thread.currentThread().interrupt();
           throw new WrappedEntityException(new EntityServerUncaughtException(entityID.getClassName(), entityID.getEntityName(), "", in));
         }
       }

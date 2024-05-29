@@ -78,7 +78,7 @@ class CoreNIOServices implements TCListenerEventListener, TCConnectionEventListe
   private final AtomicBoolean                              isSelectedForWeighting = new AtomicBoolean();
   private final List<TCListener>               listeners     = new ArrayList<>();
   private String                               listenerString;
-  
+
   private static enum COMM_THREAD_MODE {
     NIO_READER, NIO_WRITER
   }
@@ -178,7 +178,7 @@ class CoreNIOServices implements TCListenerEventListener, TCConnectionEventListe
   public long getTotalBytesWritten() {
     return readerComm.getTotalBytesWritten() + writerComm.getTotalBytesWritten();
   }
-  
+
   public static boolean hasPendingReads() {
     Thread t = Thread.currentThread();
     if (t instanceof CommThread) {
@@ -199,13 +199,13 @@ class CoreNIOServices implements TCListenerEventListener, TCConnectionEventListe
     }
     return false;
   }
-  
+
   public boolean compareWeights(CoreNIOServices incoming) {
     boolean retVal = false;
 // if incoming is passed in, the current search is the one that set the flag
 // so it is ok to assert the below is true
     Assert.assertTrue(incoming == null || incoming.isSelectedForWeighting.get());
-    
+
     if (isSelectedForWeighting.compareAndSet(false, true)) {
       if (incoming == null || incoming.clientWeights.get() > this.clientWeights.get()) {
         retVal = true;
@@ -222,7 +222,7 @@ class CoreNIOServices implements TCListenerEventListener, TCConnectionEventListe
 
     return retVal;
   }
-  
+
   private void deselectForWeighting() {
     isSelectedForWeighting.set(false);
   }
@@ -290,11 +290,11 @@ class CoreNIOServices implements TCListenerEventListener, TCConnectionEventListe
   public String toString() {
     return "[" + this.commThreadName + ", FD, wt:" + this.clientWeights + "]";
   }
-  
+
   public String getName() {
     return this.commThreadName;
   }
-  
+
   public Map<String, ?> getState() {
     Map<String, Object> state = new LinkedHashMap<>();
     state.put("name", this.commThreadName);
@@ -345,11 +345,13 @@ class CoreNIOServices implements TCListenerEventListener, TCConnectionEventListe
       setDaemon(true);
       setName(name);
 
+      CoreNIOServices.logger.debug("Instantiated CommThread[{}]", commThreadName);
+
       this.selector = createSelector();
       this.selectorTasks = new ConcurrentLinkedQueue<Runnable>();
       this.mode = mode;
     }
-    
+
     private Map<String, ?> getCommState() {
       Map<String, Object> state = new LinkedHashMap<>();
       state.put("name", name);
@@ -390,25 +392,11 @@ class CoreNIOServices implements TCListenerEventListener, TCConnectionEventListe
 
     @SuppressWarnings("resource")
     private Selector createSelector() {
-      Selector selector1 = null;
-
-      final int tries = 3;
-
-      boolean interrupted = false;
       try {
-        for (int i = 0; i < tries; i++) {
-          try {
-            selector1 = Selector.open();
-            return selector1;
-          } catch (IOException ioe) {
-            throw new RuntimeException(ioe);
-          }
-        }
-      } finally {
-        Util.selfInterruptIfNeeded(interrupted);
+        return Selector.open();
+      } catch (IOException ioe) {
+        throw new RuntimeException(ioe);
       }
-
-      return selector1;
     }
 
     void addSelectorTask(Runnable task) {
@@ -418,7 +406,7 @@ class CoreNIOServices implements TCListenerEventListener, TCConnectionEventListe
         while (true) {
           while (!this.selectorTasks.offer(task)) {
             try {
-              TimeUnit.SECONDS.sleep(5);  // this should actually never happen since the queue is unbounded.  
+              TimeUnit.SECONDS.sleep(5);  // this should actually never happen since the queue is unbounded.
               logger.warn("unable to add selector task");
             } catch (InterruptedException ie) {
               isInterrupted = true;
@@ -617,12 +605,11 @@ class CoreNIOServices implements TCListenerEventListener, TCConnectionEventListe
           }
           return;
         }
-        
+
         if (workerCommMgr != null) {
           workerCommMgr.waitDuringPause();
         }
-        
-        boolean isInterrupted = false;
+
         // run any pending selector tasks
         while (true) {
           Runnable task = localSelectorTasks.poll();
@@ -637,7 +624,6 @@ class CoreNIOServices implements TCListenerEventListener, TCConnectionEventListe
             logger.error("error running selector task", e);
           }
         }
-        Util.selfInterruptIfNeeded(isInterrupted);
 
         final Set<SelectionKey> selectedKeys = localSelector.selectedKeys();
         if ((0 == numKeys) && (0 == selectedKeys.size())) {
@@ -729,7 +715,7 @@ class CoreNIOServices implements TCListenerEventListener, TCConnectionEventListe
     private void doConnect(SelectionKey key) {
       @SuppressWarnings("resource")
       SocketChannel sc = (SocketChannel) key.channel();
-      
+
       TCConnectionImpl conn = (TCConnectionImpl) key.attachment();
 
       try {
@@ -764,6 +750,8 @@ class CoreNIOServices implements TCListenerEventListener, TCConnectionEventListe
     }
 
     private void handleRequest(final InterestRequest req) {
+      CoreNIOServices.logger.trace("{}.handleRequest", this.getClass().getName());
+
       // ignore the request if we are stopped/stopping
       if (isStopRequested()) { return; }
 

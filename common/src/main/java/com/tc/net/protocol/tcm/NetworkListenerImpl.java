@@ -41,7 +41,7 @@ import org.slf4j.LoggerFactory;
 
 /**
  * A handle to a specific server port listener
- * 
+ *
  * @author teck
  */
 class NetworkListenerImpl implements NetworkListener {
@@ -75,7 +75,7 @@ class NetworkListenerImpl implements NetworkListener {
   /**
    * Start this listener listening on the network. You probably don't want to start a listener until you have properly setup your protocol
    * routes, since you might miss messages between the time the listener is <code>start()</code> 'ed and the time you add your routes.
-   * 
+   *
    * @throws IOException if an IO error occurs (this will most likely be a problem binding to the specified port/address)
    */
   @Override
@@ -119,7 +119,10 @@ class NetworkListenerImpl implements NetworkListener {
         this.lsnr.stop(timeout);
         this.commsMgr.unregisterListener(this);
       }
-    } catch (ExecutionException | InterruptedException e) {
+    } catch (ExecutionException e) {
+      LOGGER.warn("listener not stopped", e);
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
       LOGGER.warn("listener not stopped", e);
     } catch (TimeoutException to) {
       throw new TCTimeoutException(to);
@@ -154,7 +157,10 @@ class NetworkListenerImpl implements NetworkListener {
     }
     try {
       return startDone.get();
-    } catch (ExecutionException | InterruptedException e) {
+    } catch (ExecutionException e) {
+      return false;
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
       return false;
     }
   }
